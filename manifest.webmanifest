@@ -1,0 +1,20 @@
+{
+  "name": "Finca Raíz Machetá",
+  "short_name": "Finca Raíz",
+  "description": "Compra y venta de fincas, casas, lotes y vehículos en Machetá y sus alrededores.",
+  "lang": "es-CO",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#2f6818",
+  "background_color": "#f1f3ef",
+  "icons": [
+    {
+      "src": "assets/Logo%20Finca%20raiz.jpg",
+      "sizes": "any",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}
