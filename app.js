@@ -7,7 +7,7 @@ let listings = seed;
 const app = document.getElementById('app');
 const contact = {name:'Angel Salcedo',phone:'311 202 3715',whatsapp:'+573112023715',email:'angelovidioosalcedo@gmail.com',facebook:'https://www.facebook.com/share/1AbuBXdbKe/'};
 const MAX_VIDEO_SIZE_BYTES = 50 * 1024 * 1024;
-const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
+const MAX_IMAGE_SIZE_BYTES = 50 * 1024 * 1024;
 const MAX_GALLERY_IMAGES = 20;
 const MAX_VIDEO_COUNT = 5;
 const canPublish = () => Boolean(state.user);
