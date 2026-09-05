@@ -8,7 +8,7 @@ const app = document.getElementById('app');
 const contact = {name:'Angel Salcedo',phone:'311 202 3715',whatsapp:'+573112023715',email:'angelovidioosalcedo@gmail.com',facebook:'https://www.facebook.com/share/1AbuBXdbKe/'};
 const MAX_VIDEO_SIZE_BYTES = 50 * 1024 * 1024;
 const MAX_IMAGE_SIZE_BYTES = 50 * 1024 * 1024;
-const MAX_GALLERY_IMAGES = 20;
+const MAX_GALLERY_IMAGES = 10;
 const MAX_VIDEO_COUNT = 5;
 const canPublish = () => Boolean(state.user);
 const isAdmin = () => state.user?.role === 'admin';
@@ -34,14 +34,43 @@ function validateVideoFiles(files = []){
 	}
 	return oversized;
 }
+async function optimizeImage(file){
+  if (!(file instanceof File) || !file.type.startsWith('image/') || file.type === 'image/gif' || file.size < 300 * 1024) return file;
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const image = await new Promise((resolve, reject) => {
+      const element = new Image();
+      element.onload = () => resolve(element);
+      element.onerror = reject;
+      element.src = objectUrl;
+    });
+    const maxDimension = 1600;
+    const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const context = canvas.getContext('2d');
+    if (!context) return file;
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.72));
+    if (!blob || blob.size >= file.size) return file;
+    const name = file.name.replace(/\.[^.]+$/, '') || 'imagen';
+    return new File([blob], `${name}.jpg`, {type:'image/jpeg', lastModified:Date.now()});
+  } catch (error) {
+    return file;
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
 async function uploadMedia(file, folder){
 	const maxBytes = folder === 'videos' ? MAX_VIDEO_SIZE_BYTES : MAX_IMAGE_SIZE_BYTES;
-	if (file.size > maxBytes) {
+  const uploadFile = folder === 'images' ? await optimizeImage(file) : file;
+  if (uploadFile.size > maxBytes) {
 		const label = folder === 'videos' ? 'video' : 'imagen';
-		throw new Error(`El ${label} "${file.name}" supera el límite de ${(maxBytes / (1024 * 1024)).toFixed(0)} MB. Reduce su tamaño antes de publicar.`);
+    throw new Error(`El ${label} "${file.name}" supera el límite de ${(maxBytes / (1024 * 1024)).toFixed(0)} MB incluso después de optimizarlo.`);
 	}
-	const path=`${folder}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g,'-')}`;
-	const {error}=await supabaseClient.storage.from('listing-media').upload(path,file,{upsert:false});
+  const path=`${folder}/${crypto.randomUUID()}-${uploadFile.name.replace(/[^a-zA-Z0-9._-]/g,'-')}`;
+  const {error}=await supabaseClient.storage.from('listing-media').upload(path,uploadFile,{upsert:false});
 	if(error)throw error;
 	return supabaseClient.storage.from('listing-media').getPublicUrl(path).data.publicUrl;
 }
@@ -303,7 +332,7 @@ function openEditListingModal(item){
 document.addEventListener('click',async event=>{const google=event.target.closest('[data-action="google"]');if(google){if(!supabaseClient){toast('Configura Supabase para usar Google.');return}const {error}=await supabaseClient.auth.signInWithOAuth({provider:'google',options:{redirectTo:window.location.href}});if(error)toast(error.message);return}const editListing=event.target.closest('[data-edit-listing]');if(editListing){if(!supabaseClient||!state.user?.id)return;const item=listings.find(value=>String(value.id)===editListing.dataset.editListing);if(!item)return;openEditListingModal(item);return}const remove=event.target.closest('[data-delete]');if(!remove||!supabaseClient)return;if(!await confirmDelete())return;const {error}=await supabaseClient.from('listings').delete().eq('id',remove.dataset.delete).eq('owner',state.user.id);if(error){toast(error.message);return}listings=listings.filter(item=>String(item.id)!==remove.dataset.delete);render();toast('Publicación eliminada')});
 function setInputFiles(input,files){const transfer=new DataTransfer();files.forEach(file=>transfer.items.add(file));input.files=transfer.files}
 function bindMediaRemoveButtons(input){if(!input||input.dataset.mediaBound)return;input.dataset.mediaBound='true';const field=input.closest('.field');if(!field)return;const preview=document.createElement('div');preview.className='selected-media-preview';preview.style.marginTop='8px';field.appendChild(preview);const refresh=()=>{const files=Array.from(input.files||[]);if(!files.length){preview.innerHTML='<div class="meta">Sin archivos seleccionados</div>';return;}preview.innerHTML=files.map((file,index)=>`<div class="media-preview" style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:6px 0;padding:8px;border:1px solid #dfe7df;border-radius:8px;background:#f7faf7"><div style="display:flex;align-items:center;gap:10px;min-width:0"><span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:${file.type.startsWith('video/')?'#e8f7d3':'#dff7e8'};font-size:16px">${file.type.startsWith('video/')?'🎬':'🖼️'}</span><small style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${file.name}</small></div><button type="button" class="btn btn-danger btn-tiny" data-remove-media-index="${index}">Quitar</button></div>`).join('');preview.querySelectorAll('[data-remove-media-index]').forEach(button=>button.addEventListener('click',()=>{const current=Array.from(input.files||[]);const next=current.filter((_,idx)=>idx!==Number(button.dataset.removeMediaIndex));setInputFiles(input,next);refresh()}));};input.addEventListener('change',refresh);refresh();}
-function enhanceImageUpload(){const form=document.querySelector('#publish-form');if(!form||form.dataset.mediaEnhanced)return;form.dataset.mediaEnhanced='true';if(form.querySelector('input[name="coverImage"]')||form.querySelector('input[name="galleryImages"]')||form.querySelector('input[name="videoFiles"]'))return;const insertAfter=form.querySelector('input[name="price"]')?.closest('.field')||form.querySelector('input[name="title"]')?.closest('.field');const mediaMarkup='<div class="field cover-upload"><label>Imagen de portada</label><input name="coverImage" type="file" accept="image/*"><small class="meta">Opcional si ya agregas una galería o un video.</small></div><div class="field gallery-upload"><label>Galería de imágenes</label><input name="galleryImages" type="file" accept="image/*" multiple><small class="meta">Puedes seleccionar hasta 20 imágenes.</small></div><div class="field video-upload"><label>Videos</label><input name="videoFiles" type="file" accept="video/*" multiple><small class="meta">Puedes seleccionar hasta 5 videos y 50 MB por archivo.</small></div>';if(insertAfter){insertAfter.insertAdjacentHTML('afterend',mediaMarkup)}else{form.insertAdjacentHTML('beforeend',mediaMarkup)};form.querySelectorAll('input[name="coverImage"], input[name="galleryImages"], input[name="videoFiles"]').forEach(bindMediaRemoveButtons)}
+function enhanceImageUpload(){const form=document.querySelector('#publish-form');if(!form||form.dataset.mediaEnhanced)return;form.dataset.mediaEnhanced='true';if(form.querySelector('input[name="coverImage"]')||form.querySelector('input[name="galleryImages"]')||form.querySelector('input[name="videoFiles"]'))return;const insertAfter=form.querySelector('input[name="price"]')?.closest('.field')||form.querySelector('input[name="title"]')?.closest('.field');const mediaMarkup='<div class="field cover-upload"><label>Imagen de portada</label><input name="coverImage" type="file" accept="image/*"><small class="meta">Opcional si ya agregas una galería o un video.</small></div><div class="field gallery-upload"><label>Galería de imágenes</label><input name="galleryImages" type="file" accept="image/*" multiple><small class="meta">Puedes seleccionar hasta 10 imágenes.</small></div><div class="field video-upload"><label>Videos</label><input name="videoFiles" type="file" accept="video/*" multiple><small class="meta">Puedes seleccionar hasta 5 videos y 50 MB por archivo.</small></div>';if(insertAfter){insertAfter.insertAdjacentHTML('afterend',mediaMarkup)}else{form.insertAdjacentHTML('beforeend',mediaMarkup)};form.querySelectorAll('input[name="coverImage"], input[name="galleryImages"], input[name="videoFiles"]').forEach(bindMediaRemoveButtons)}
 function enhancePriceField(){const field=document.querySelector('#publish-form input[name="price"]');if(!field||field.dataset.formatted)return;field.dataset.formatted='true';const format=()=>{const digits=field.value.replace(/\D/g,'');field.value=digits?new Intl.NumberFormat('es-CO').format(Number(digits)):''};field.addEventListener('input',format);format()}
 function enhanceAreaField(){const form=document.querySelector('#publish-form');const priceField=form?.querySelector('input[name="price"]');if(!form||!priceField)return;let areaField=form.querySelector('[data-area-field]');if(!areaField){priceField.insertAdjacentHTML('afterend','<div class="field" data-area-field><label>Área</label><div class="area-input"><input name="area" type="number" min="0.01" step="0.01" placeholder="Ej. 1200"><select name="areaUnit" aria-label="Unidad del área"><option value="m²">m²</option><option value="hectáreas">Hectáreas</option></select></div></div>');areaField=form.querySelector('[data-area-field]')}const typeField=form.querySelector('select[name="type"]');const updateArea=()=>{const isProperty=typeField?.value!=='vehicle';areaField.hidden=!isProperty;areaField.querySelector('input[name="area"]').required=isProperty};const updateTitle=()=>{const titleField=form.querySelector('input[name="title"]');if(titleField)titleField.placeholder=typeField?.value==='vehicle'?'Ej. Toyota Hilux 2020':'Ej. Finca El Paraíso'};typeField?.addEventListener('change',updateArea);typeField?.addEventListener('change',updateTitle);typeField?.addEventListener('input',updateArea);typeField?.addEventListener('input',updateTitle);updateArea();updateTitle();form.querySelector('input[name="location"]')?.parentElement.classList.add('location-field')}
 document.addEventListener('change',event=>{if(event.target.matches('#publish-form select[name="type"]')){const areaField=document.querySelector('#publish-form [data-area-field]');const areaInput=areaField?.querySelector('input[name="area"]');if(areaField&&areaInput){areaField.hidden=event.target.value==='vehicle';areaInput.required=event.target.value!=='vehicle'}}});

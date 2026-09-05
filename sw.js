@@ -1,9 +1,9 @@
-const CACHE_NAME = 'finca-raiz-macheta-v2';
+const CACHE_NAME = 'finca-raiz-macheta-v4';
 const APP_SHELL = [
   './',
   './index.html',
   './styles.css?v=vehicle-submit-blue3',
-  './app.js?v=logo6',
+  './app.js?v=mobile-upload8',
   './supabase-config.js',
   './manifest.webmanifest',
   './assets/Logo%20Finca%20raiz.jpg'
