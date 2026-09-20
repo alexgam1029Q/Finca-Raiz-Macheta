@@ -368,3 +368,20 @@ h1 { font-size: clamp(34px, 4vw, 54px); line-height: 1.06; max-width: 620px; }
   #publish-form input[type="file"] { font-size:12px; }
   #publish-form input[type="file"]::file-selector-button { margin-right:6px; padding:9px 10px; font-size:12px; }
 }
+
+@media(max-width:560px){
+  .hero-content { max-width:none; }
+  .hero h1 { font-size:clamp(32px, 9vw, 40px) !important; line-height:1.08; }
+  .hero p { font-size:16px; line-height:1.45; }
+  .search-panel { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) !important; gap:10px; padding:14px; }
+  .search-panel .field:first-child { grid-column:1/-1; }
+  .search-panel .field label { font-size:12px; margin-bottom:5px; }
+  .search-panel .field input,
+  .search-panel .field select,
+  .search-panel .btn { min-height:46px; width:100%; }
+  .search-panel .btn { margin-top:2px; }
+}
+
+@media(min-width:561px){
+  .search-panel { grid-template-columns:1.4fr .9fr auto; }
+}
