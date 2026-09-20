@@ -27,8 +27,11 @@ self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET' || !event.request.url.startsWith(self.location.origin)) return;
   event.respondWith(
     fetch(event.request).then(response => {
+      if (!response || response.status === 206 || response.type === 'opaque' || response.type === 'opaqueredirect') {
+        return response;
+      }
       const copy = response.clone();
-      caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
+      caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy)).catch(() => {});
       return response;
     }).catch(() => caches.match(event.request).then(response => response || caches.match('./index.html')))
   );
